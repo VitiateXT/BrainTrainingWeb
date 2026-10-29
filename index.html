@@ -196,12 +196,14 @@ const $ = s => document.querySelector(s);
 // A random whole number from a up to, but not including, b, like Kotlin's
 // Random.nextInt(a, b). The ranges below are copied from the app with this in mind.
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a));
+// A random element of list.
 const pick = list => list[rnd(0, list.length)];
 // Shuffle an array in place (Fisher-Yates) and return it.
 const shuffle = a => {
   for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i + 1); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 };
+// A promise that resolves after ms milliseconds, for use with await.
 const wait = ms => new Promise(done => setTimeout(done, ms));
 
 // The open mode's key in MODES ('' on Home, null before the first screen is
@@ -306,6 +308,8 @@ $('#memstart').onclick = async () => {
   $('#mema').focus();
 };
 
+// Grade the typed sequence. Anything but digits, such as spaces, is ignored;
+// an empty answer is a prompt to type, not a wrong answer.
 $('#memf').onsubmit = e => {
   e.preventDefault();
   const v = $('#mema').value.replace(/\D/g, '');
@@ -343,7 +347,9 @@ function colourNext() {
 
 // ---- Screens --------------------------------------------------------------
 
-// Title, score hint and first round of each mode, by URL hash.
+// Title, hint for the status line and first round of each mode, keyed by the
+// name in the URL hash. A new mode needs an entry here, a link on Home and a
+// <div class="game"> with the same id.
 const MODES = {
   calc: {title: 'Calculator Mode', hint: 'Target range: 0 - 1000', start: calcNext},
   mem: {title: 'Remembering Mode', hint: 'Round length: 5 digits', start: memReady},
@@ -377,12 +383,15 @@ function route() {
   m.start();
 }
 
+// Back is a plain link to Home (#), unless route() marked that stepping back
+// in the history leads there.
 $('#back').onclick = e => {
   if ($('#back').dataset.history) { e.preventDefault(); history.back(); }
 };
 
-// Shortcuts for a keyboard: Escape leaves a mode, 1-4 pick a colour. Held-down
-// keys and combinations with Ctrl, Alt or Cmd are left to the browser.
+// Shortcuts for a keyboard: Escape leaves a mode, 1-4 pick a colour, counting
+// the buttons left to right and top to bottom. Held-down keys and combinations
+// with Ctrl, Alt or Cmd are left to the browser.
 addEventListener('keydown', e => {
   if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.key === 'Escape' && mode) $('#back').click();
