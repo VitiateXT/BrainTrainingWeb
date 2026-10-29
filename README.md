@@ -4,7 +4,9 @@ The three mini-games of the [BrainTraining](https://github.com/VitiateXT/BrainTr
 Android app as a small web app for the home network: one password, HTTPS,
 reachable from any browser on the LAN.
 
-- **Calculator Mode**: arithmetic up to 1000 (+, −, ×, exact ÷).
+- **Calculator Mode**: +, −, × and exact ÷ at two levels. **Up to 100** (the
+  default) keeps every result at most 100 and × and ÷ within the times tables
+  from 2 to 10. **Up to 1000** uses the Android app's ranges.
 - **Remembering Mode**: five digits fade in one after another; type them back
   in order.
 - **Colour Mode**: a Stroop test. Tap the ink colour, not the written word.
@@ -130,7 +132,8 @@ BT_PASSWORD=test ./braintraining                     # run without the service (
 
 Where to change things in `index.html`:
 
-- Task ranges: `calcTask()`, a port of `GameGenerators.kt` from the Android app.
+- Task ranges: `calcTask()`. Up to 1000 is a port of `GameGenerators.kt` from
+  the Android app; the default level is `level`.
 - Digit count and timing of Remembering Mode: the `#memstart` click handler.
 - Colours: the CSS variables at the top (from `BrainTrainingTheme.kt`) and
   `INK` for Colour Mode.

@@ -94,6 +94,13 @@ h2{margin:0;font-size:20px}
 .big{font-size:36px;font-weight:700;line-height:44px;min-height:44px}
 #memq{transition:opacity .35s}
 
+/* Calculator difficulty: two joined buttons on the badge row, the chosen one filled. */
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.seg{display:flex;border:1px solid var(--outline);border-radius:999px;overflow:hidden}
+.seg button{width:auto;border-radius:0;padding:7px 12px;font-size:14px;background:none;color:var(--fg);white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--acc);color:var(--on-acc)}
+.seg button:focus-visible{outline-offset:-4px;outline-color:var(--fg)}
+
 /* Colour mode: always on a dark stage so the vivid inks stay legible in both themes. */
 .stage{background:var(--stage);color:var(--on-stage);text-align:center}
 #word{font-size:52px;font-weight:700;line-height:1.2}
@@ -115,10 +122,12 @@ h2{margin:0;font-size:20px}
   #opts button{height:56px}
 }
 
-/* Little height and some width, as on a phone held sideways: the prompt goes
-   left and the controls right. */
+/* Little height and some width, as on a phone held sideways: score and status
+   line share a row, then the prompt goes left and the controls right. */
 @media (orientation:landscape) and (max-height:540px){
   body.play header,body.play main{max-width:992px}
+  #mode{display:grid;grid-template-columns:1fr 1fr}
+  #mode>.game{grid-column:1/-1}
   .game{display:grid;grid-template-columns:1fr 1fr;align-items:start}
   .game>.card{grid-row:1/span 3}
 }
@@ -135,7 +144,7 @@ h2{margin:0;font-size:20px}
   <!-- Home: one card per mode. The links open the mode by changing the URL hash. -->
   <section id="home">
     <p class="sub">Three focused mini-games for arithmetic speed, ordered recall and attention.</p>
-    <div class="card"><h2>Calculator Mode</h2><p class="sub">Solve quick arithmetic tasks up to 1000 with addition, subtraction, multiplication, and exact division.</p><a class="btn" href="#/calc" style="background:var(--m0);color:var(--on-m)">Start</a></div>
+    <div class="card"><h2>Calculator Mode</h2><p class="sub">Solve quick arithmetic tasks up to 100 or up to 1000 with addition, subtraction, multiplication, and exact division.</p><a class="btn" href="#/calc" style="background:var(--m0);color:var(--on-m)">Start</a></div>
     <div class="card"><h2>Remembering Mode</h2><p class="sub">Watch five numbers flash one after another, then type them back in the same order.</p><a class="btn" href="#/mem" style="background:var(--m1);color:var(--on-m)">Start</a></div>
     <div class="card"><h2>Colour Mode</h2><p class="sub">Read the colour word, ignore the distraction, and tap the button that matches the text colour.</p><a class="btn" href="#/colour" style="background:var(--m2);color:var(--on-m)">Start</a></div>
     <small>Inspired by brainjogging. Free software under the GNU GPL v3.</small>
@@ -148,7 +157,13 @@ h2{margin:0;font-size:20px}
 
     <div class="game" id="calc">
       <div class="card prompt">
-        <span class="badge">Task</span>
+        <div class="row">
+          <span class="badge">Task</span>
+          <div class="seg" id="level" role="group" aria-label="Difficulty">
+            <button type="button" value="100" aria-pressed="true">Up to 100</button>
+            <button type="button" value="1000" aria-pressed="false">Up to 1000</button>
+          </div>
+        </div>
         <span class="big" id="calcq"></span>
         <p>Enter the result. Division questions are always exact.</p>
       </div>
@@ -227,11 +242,21 @@ function grade(right, msg) {
 
 // ---- Calculator mode ------------------------------------------------------
 
-// The open task: the text shown and the answer.
-let task;
+// The open task (the text shown and the answer) and the difficulty: the
+// largest result, 100 or 1000. It starts at 100 and keeps the last choice
+// until the page is reloaded.
+let task, level = 100;
 
-// A task whose result stays between 0 and 1000. Division is always exact.
-function calcTask() {
+// A task whose result stays between 0 and max. Division is always exact.
+// Up to 100 keeps multiplication and division within the times tables from 2
+// to 10; up to 1000 uses the Android app's ranges (GameGenerators.kt).
+function calcTask(max) {
+  if (max === 100) switch (rnd(0, 4)) {
+    case 0: { const l = rnd(10, 90), r = rnd(2, 101 - l); return {q: `${l} + ${r}`, a: l + r}; }
+    case 1: { const l = rnd(10, 101), r = rnd(2, l); return {q: `${l} − ${r}`, a: l - r}; }
+    case 2: { const l = rnd(2, 11), r = rnd(2, 11); return {q: `${l} × ${r}`, a: l * r}; }
+    default: { const r = rnd(2, 11), q = rnd(2, 11); return {q: `${q * r} ÷ ${r}`, a: q}; }
+  }
   switch (rnd(0, 4)) {
     case 0: { const l = rnd(10, 751), r = rnd(1, 1001 - l); return {q: `${l} + ${r}`, a: l + r}; }
     case 1: { const l = rnd(50, 1001), r = rnd(1, l + 1); return {q: `${l} − ${r}`, a: l - r}; }
@@ -243,11 +268,28 @@ function calcTask() {
 // Show a new task. The field keeps the focus, so the keyboard of a phone stays
 // open and a desktop user can type straight away.
 function calcNext() {
-  task = calcTask();
+  task = calcTask(level);
   $('#calcq').textContent = task.q;
   $('#calca').value = '';
   $('#calca').focus();
 }
+
+// Show the chosen difficulty as pressed and start a task at that level.
+function calcStart() {
+  for (const b of $('#level').children) b.setAttribute('aria-pressed', b.value === String(level));
+  calcNext();
+}
+
+// Changing the difficulty starts over: score and streak only count tasks of
+// one level.
+$('#level').onclick = e => {
+  if (!e.target.value || Number(e.target.value) === level) return;
+  level = Number(e.target.value);
+  score = streak = 0;
+  $('#score').textContent = $('#streak').textContent = 0;
+  status(MODES.calc.hint);
+  calcStart();
+};
 
 // An empty or malformed answer is a prompt to type, not a wrong answer.
 $('#calcf').onsubmit = e => {
@@ -351,7 +393,7 @@ function colourNext() {
 // name in the URL hash. A new mode needs an entry here, a link on Home and a
 // <div class="game"> with the same id.
 const MODES = {
-  calc: {title: 'Calculator Mode', hint: 'Target range: 0 - 1000', start: calcNext},
+  calc: {title: 'Calculator Mode', get hint() { return `Target range: 0 - ${level}`; }, start: calcStart},
   mem: {title: 'Remembering Mode', hint: 'Round length: 5 digits', start: memReady},
   colour: {title: 'Colour Mode', hint: 'Tap the ink colour, not the written word', start: colourNext},
 };
