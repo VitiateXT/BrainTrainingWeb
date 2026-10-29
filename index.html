@@ -99,10 +99,6 @@ h2{margin:0;font-size:20px}
 #word{font-size:52px;font-weight:700;line-height:1.2}
 #opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 #opts button{height:64px;color:#10151F;border:1px solid var(--outline)}
-/* The keys 1-4 pick a colour. Their hints only show where there is a mouse,
-   which usually means a keyboard too. */
-kbd{font:inherit;font-size:13px;border:1px solid;border-radius:6px;padding:0 6px;margin-right:8px;opacity:.7}
-@media (hover:none){kbd{display:none}}
 
 /* Larger prompts where there is room. */
 @media (min-width:600px) and (min-height:600px){
@@ -333,10 +329,9 @@ function colourNext() {
   const options = shuffle([ink, ...shuffle(names.filter(n => n !== ink)).slice(0, 3)]);
   $('#word').textContent = word;
   $('#word').style.color = INK[ink];
-  $('#opts').replaceChildren(...options.map((name, i) => {
+  $('#opts').replaceChildren(...options.map(name => {
     const b = document.createElement('button');
-    b.value = name;
-    b.innerHTML = `<kbd>${i + 1}</kbd>${name}`;
+    b.value = b.textContent = name;
     b.style.background = INK[name];
     b.onclick = () => {
       grade(name === ink, `${name === ink ? 'Correct' : 'Incorrect'}. The ink colour was ${ink}.`);
