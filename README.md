@@ -12,6 +12,11 @@ browser on the LAN.
 Each mode counts a score and a streak, as in the app. Nothing is saved: the
 games run in the browser, and scores start at zero each time a mode is opened.
 
+It works on phones (upright and sideways), tablets, laptops and desktops. A
+whole round fits on the screen without scrolling. With a keyboard, Enter
+answers or starts the next round, the keys 1–4 pick a colour, and Escape goes
+back to the start page.
+
 It is one 5 MB program built with the Go standard library. The web pages are
 compiled into it. It has no database and no settings beyond the password.
 
