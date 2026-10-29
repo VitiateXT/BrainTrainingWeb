@@ -1,0 +1,38 @@
+<!doctype html>
+<!--
+  BrainTraining login page. The server sends it instead of the games when the
+  browser has no valid session cookie (see main.go). The password goes out as
+  an ordinary form, so this works without JavaScript; the one-line script only
+  shows "Wrong password" after a failed attempt, which ends on /?wrong.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>BrainTraining</title>
+<style>
+/* Colors from the Android app's theme (BrainTrainingTheme.kt), light then dark. */
+:root{--bg:#F6F1E8;--card:#FFFDF8;--fg:#14181F;--line:#6B7280;--acc:#0F5B56;--on-acc:#fff;--err:#B3261E}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1220;--card:#161F2E;--fg:#E9EEF6;--line:#8894A8;--acc:#5EEAD4;--on-acc:#04302C;--err:#FFB4AB}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif}
+form{max-width:420px;margin:0 auto;padding:20vh 16px 0;display:flex;flex-wrap:wrap;gap:8px}
+h1{width:100%;margin:0 0 8px;font-size:26px}
+input,button{font:inherit;border-radius:10px;padding:10px 12px}
+input{flex:1;min-width:0;background:var(--card);color:inherit;border:1px solid var(--line)}
+button{background:var(--acc);color:var(--on-acc);border:0;font-weight:600}
+p{width:100%;margin:0;color:var(--err)}
+</style>
+</head>
+<body>
+<form method="post" action="/login">
+  <h1>BrainTraining</h1>
+  <input name="pw" type="password" placeholder="Password" autocomplete="current-password" required autofocus>
+  <button>Sign in</button>
+  <p id="err" hidden>Wrong password.</p>
+</form>
+<script>if (location.search === '?wrong') document.getElementById('err').hidden = false;</script>
+</body>
+</html>

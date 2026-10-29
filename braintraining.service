@@ -1,0 +1,14 @@
+# setup.sh installs a copy of this file with ExecStart pointing at the folder
+# the program really lives in.
+[Unit]
+Description=BrainTraining web app
+
+[Service]
+ExecStart=%h/Projects/BrainTrainingWeb/braintraining
+EnvironmentFile=%h/.config/braintraining/env
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

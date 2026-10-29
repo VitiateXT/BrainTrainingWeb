@@ -1,0 +1,352 @@
+<!doctype html>
+<!--
+  BrainTraining games page: the three mini-games of the Android app in one
+  file, no framework and no build step. It is compiled into the server binary
+  (see main.go) and only sent to a browser that is logged in.
+
+  Everything runs in the browser. Scores live in memory only and start at zero
+  each time a mode is opened, as in the app.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>BrainTraining</title>
+<style>
+/*
+  Colors from the Android app's theme (BrainTrainingTheme.kt), light then dark:
+  page, card, text, secondary text, outline, divider, accent and the text on
+  it, prompt card, good and bad feedback, one accent per mode and the text on
+  those, and the dark stage of colour mode with its text.
+*/
+:root{
+  --bg:#F6F1E8;--card:#FFFFFF;--fg:#14181F;--dim:#3B4453;--outline:#6B7280;--line:#C7CCD4;
+  --acc:#0F5B56;--on-acc:#FFFFFF;--prompt:#FCF2E2;
+  --ok:#D7F2E3;--on-ok:#0B4A2B;--bad:#FBDEDB;--on-bad:#8C1D18;
+  --m0:#0F5B56;--m1:#B3400C;--m2:#6D28D9;--on-m:#FFFFFF;
+  --stage:#16202E;--on-stage:#F1F5FA;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0B1220;--card:#161F2E;--fg:#E9EEF6;--dim:#BAC5D6;--outline:#8894A8;--line:#3A4557;
+  --acc:#5EEAD4;--on-acc:#04302C;--prompt:#322A1C;
+  --ok:#123726;--on-ok:#A8E6C4;--bad:#43201E;--on-bad:#FFC9C4;
+  --m0:#5EEAD4;--m1:#FDBA74;--m2:#C4B5FD;--on-m:#10151F;
+  --stage:#0D1522;--on-stage:#E9EEF6;
+}}
+*{box-sizing:border-box}
+/* Make the hidden attribute win over display:flex and friends below. */
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif}
+/* Page width and the 16px side gutter that keeps content off the screen edge on phones. */
+header,main{max-width:600px;margin:0 auto;padding:0 16px}
+p{margin:0}
+
+/* Top bar: Back (in a mode), title, Sign out (on Home). */
+header{display:flex;align-items:center;gap:12px;min-height:56px}
+h1{flex:1;margin:0;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#back{color:var(--acc);text-decoration:none;font-weight:600}
+
+/* Buttons and inputs */
+input,button,.btn{font:inherit;border-radius:12px;padding:12px 14px}
+input{width:100%;background:var(--card);color:inherit;border:1px solid var(--outline);font-size:18px}
+button,.btn{display:block;width:100%;border:0;background:var(--acc);color:var(--on-acc);font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+#out button{width:auto;padding:8px 12px;background:none;color:var(--acc)}
+
+/* Cards and the vertical rhythm inside a screen */
+main>section{display:flex;flex-direction:column;gap:16px;padding-bottom:32px}
+main>section>div{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.sub,.card .sub{color:var(--dim)}
+h2{margin:0;font-size:20px}
+small{color:var(--dim)}
+
+/* Score board: two numbers side by side, a hint line below a divider. */
+.stats{display:flex;justify-content:space-around;text-align:center;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.stats b{display:block;font-size:30px}
+
+/* Big prompt card for calculator and remembering mode. The title keeps its
+   height while a digit is faded out, so nothing below it jumps. */
+.prompt{background:var(--prompt)}
+.badge{color:var(--acc);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
+.big{font-size:36px;font-weight:700;line-height:44px;min-height:44px}
+#memq{transition:opacity .35s}
+
+/* Colour mode: always on a dark stage so the vivid inks stay legible in both themes. */
+.stage{background:var(--stage);color:var(--on-stage);text-align:center}
+#word{font-size:52px;font-weight:700}
+#opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#opts button{height:64px;color:#10151F;border:1px solid var(--outline)}
+
+/* Feedback after a round */
+#fb{border-radius:20px;padding:16px 18px}
+#fb.ok{background:var(--ok);color:var(--on-ok)}
+#fb.bad{background:var(--bad);color:var(--on-bad)}
+</style>
+</head>
+<body>
+<header>
+  <a id="back" href="#" hidden>‹ Back</a>
+  <h1 id="title">BrainTraining</h1>
+  <form id="out" method="post" action="/logout"><button>Sign out</button></form>
+</header>
+
+<main>
+  <!-- Home: one card per mode. The links open the mode by changing the URL hash. -->
+  <section id="home">
+    <p class="sub">Three focused mini-games for arithmetic speed, ordered recall and attention.</p>
+    <div class="card"><h2>Calculator Mode</h2><p class="sub">Solve quick arithmetic tasks up to 1000 with addition, subtraction, multiplication, and exact division.</p><a class="btn" href="#calc" style="background:var(--m0);color:var(--on-m)">Start</a></div>
+    <div class="card"><h2>Remembering Mode</h2><p class="sub">Watch five numbers flash one after another, then type them back in the same order.</p><a class="btn" href="#mem" style="background:var(--m1);color:var(--on-m)">Start</a></div>
+    <div class="card"><h2>Colour Mode</h2><p class="sub">Read the colour word, ignore the distraction, and tap the button that matches the text colour.</p><a class="btn" href="#colour" style="background:var(--m2);color:var(--on-m)">Start</a></div>
+    <small>Inspired by brainjogging. Free software under the GNU GPL v3.</small>
+  </section>
+
+  <!-- A mode: score board, then the open game, then the feedback of the last round. -->
+  <section id="mode" hidden>
+    <p class="sub" id="desc"></p>
+    <div class="card">
+      <div class="stats"><span>Score<b id="score">0</b></span><span>Streak<b id="streak">0</b></span></div>
+      <p class="sub" id="hint"></p>
+    </div>
+
+    <div id="calc">
+      <div class="card prompt">
+        <span class="badge">Task</span>
+        <span class="big" id="calcq"></span>
+        <p>Enter the result. Division questions are always exact.</p>
+      </div>
+      <form id="calcf"><input id="calca" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="Your answer" aria-label="Your answer"></form>
+      <button form="calcf">Check answer</button>
+    </div>
+
+    <div id="mem">
+      <div class="card prompt">
+        <span class="badge" id="membadge"></span>
+        <span class="big" id="memq"></span>
+        <p id="memtext"></p>
+      </div>
+      <button id="memstart">Start round</button>
+      <form id="memf"><input id="mema" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="Sequence" aria-label="Sequence"></form>
+      <button id="memsubmit" form="memf">Submit sequence</button>
+    </div>
+
+    <div id="colour">
+      <div class="card stage">
+        <p>Read the word, then choose the colour of the text below.</p>
+        <span id="word"></span>
+      </div>
+      <div id="opts"></div>
+    </div>
+
+    <p id="fb" aria-live="polite" hidden></p>
+  </section>
+</main>
+
+<script>
+/*
+  How this page works
+
+  - The open screen lives in the URL hash: '' is Home, #calc, #mem and #colour
+    are the modes. The browser's back button (or the phone's back gesture)
+    therefore returns to Home, as in the app.
+  - Each mode has a start function that sets up its first round. A round ends
+    in grade(), which updates score and streak exactly like the app: +1 and
+    streak +1 when right, -1 (never below 0) and streak 0 when wrong.
+  - The task generators are ports of GameGenerators.kt with the same ranges.
+*/
+
+// Shorthand for document.querySelector.
+const $ = s => document.querySelector(s);
+// A random whole number from a up to, but not including, b, like Kotlin's
+// Random.nextInt(a, b). The ranges below are copied from the app with this in mind.
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a));
+const pick = list => list[rnd(0, list.length)];
+// Shuffle an array in place (Fisher-Yates) and return it.
+const shuffle = a => {
+  for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+const wait = ms => new Promise(done => setTimeout(done, ms));
+
+// Score and streak of the open mode.
+let score = 0, streak = 0;
+
+// Show a feedback line, green when good is true, red otherwise.
+function feedback(msg, good) {
+  $('#fb').textContent = msg;
+  $('#fb').className = good ? 'ok' : 'bad';
+  $('#fb').hidden = false;
+}
+
+// Count one finished round and show its feedback.
+function grade(right, msg) {
+  score = right ? score + 1 : Math.max(0, score - 1);
+  streak = right ? streak + 1 : 0;
+  $('#score').textContent = score;
+  $('#streak').textContent = streak;
+  feedback(msg, right);
+}
+
+// ---- Calculator mode ------------------------------------------------------
+
+// The open task: the text shown and the answer.
+let task;
+
+// A task whose result stays between 0 and 1000. Division is always exact.
+function calcTask() {
+  switch (rnd(0, 4)) {
+    case 0: { const l = rnd(10, 751), r = rnd(1, 1001 - l); return {q: `${l} + ${r}`, a: l + r}; }
+    case 1: { const l = rnd(50, 1001), r = rnd(1, l + 1); return {q: `${l} − ${r}`, a: l - r}; }
+    case 2: { const l = rnd(2, 26), r = rnd(2, Math.max(2, Math.floor(1000 / l)) + 1); return {q: `${l} × ${r}`, a: l * r}; }
+    default: { const r = rnd(2, 21), q = rnd(2, Math.floor(1000 / r) + 1); return {q: `${q * r} ÷ ${r}`, a: q}; }
+  }
+}
+
+function calcNext() {
+  task = calcTask();
+  $('#calcq').textContent = task.q;
+  $('#calca').value = '';
+}
+
+// An empty or malformed answer is a prompt to type, not a wrong answer.
+$('#calcf').onsubmit = e => {
+  e.preventDefault();
+  const v = $('#calca').value.trim();
+  if (!/^-?\d+$/.test(v)) return feedback('Enter a valid number before checking.', false);
+  const right = Number(v) === task.a;
+  grade(right, `${right ? 'Correct' : 'Not quite'}. ${task.q} = ${task.a}.`);
+  calcNext();
+  // Keep the keyboard open on phones for the next task.
+  $('#calca').focus();
+};
+
+// ---- Remembering mode -----------------------------------------------------
+
+// The digits of the open round, as a string such as "40719".
+let seq = '';
+// Counts reveals, so that one still running stops when the mode is left or a
+// new round starts.
+let reveal = 0;
+
+// Switch the round's phase: 'Ready', 'Watch' or 'Recall'.
+function memPhase(badge, title, text) {
+  $('#membadge').textContent = badge;
+  $('#memq').textContent = title;
+  $('#memq').style.opacity = 1;
+  $('#memtext').textContent = text;
+  $('#memstart').hidden = badge !== 'Ready';
+  $('#memf').hidden = $('#memsubmit').hidden = badge !== 'Recall';
+}
+
+function memReady() {
+  reveal++;
+  memPhase('Ready', 'Press start', 'Five digits will appear one after another. Press start when you are ready.');
+}
+
+// Show five digits one at a time with the app's timing: a 500 ms pause, then
+// for each digit 350 ms fade in, 550 ms fully visible, 350 ms fade out and a
+// 150 ms gap. The fades are the CSS transition on #memq.
+$('#memstart').onclick = async () => {
+  const id = ++reveal, q = $('#memq');
+  seq = Array.from({length: 5}, () => rnd(0, 10)).join('');
+  $('#fb').hidden = true;
+  memPhase('Watch', '', 'Memorise the digits as they appear.');
+  q.style.opacity = 0;
+  await wait(500);
+  for (const d of seq) {
+    if (id !== reveal) return;
+    q.textContent = d;
+    q.style.opacity = 1;
+    await wait(350 + 550);
+    q.style.opacity = 0;
+    await wait(350 + 150);
+  }
+  if (id !== reveal) return;
+  memPhase('Recall', 'Type the sequence', 'Enter the five digits in the order they appeared, without spaces.');
+  $('#mema').value = '';
+  $('#mema').focus();
+};
+
+$('#memf').onsubmit = e => {
+  e.preventDefault();
+  const v = $('#mema').value.replace(/\D/g, '');
+  if (!v) return feedback('Enter the sequence before submitting.', false);
+  const right = v === seq;
+  grade(right, `${right ? 'Correct' : 'Incorrect'}. The sequence was ${seq}.`);
+  memReady();
+};
+
+// ---- Colour mode ----------------------------------------------------------
+
+// The six inks, vivid enough to tell apart on the dark stage.
+const INK = {Red: '#F87171', Blue: '#60A5FA', Green: '#4ADE80', Yellow: '#FACC15', Orange: '#FB923C', Purple: '#A78BFA'};
+
+// One challenge: a colour word drawn in a different ink, and four buttons of
+// which exactly one is the ink colour. The ink is the right answer.
+function colourNext() {
+  const names = Object.keys(INK), word = pick(names);
+  let ink;
+  do ink = pick(names); while (ink === word);
+  const options = shuffle([ink, ...shuffle(names.filter(n => n !== ink)).slice(0, 3)]);
+  $('#word').textContent = word;
+  $('#word').style.color = INK[ink];
+  $('#opts').replaceChildren(...options.map(name => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.style.background = INK[name];
+    b.onclick = () => {
+      grade(name === ink, `${name === ink ? 'Correct' : 'Incorrect'}. The ink colour was ${ink}.`);
+      colourNext();
+    };
+    return b;
+  }));
+}
+
+// ---- Screens --------------------------------------------------------------
+
+// Title, description, score hint and first round of each mode, by URL hash.
+const MODES = {
+  calc: {title: 'Calculator Mode', hint: 'Target range: 0 - 1000', start: calcNext,
+    desc: 'Solve quick arithmetic tasks up to 1000 with addition, subtraction, multiplication, and exact division.'},
+  mem: {title: 'Remembering Mode', hint: 'Round length: 5 digits', start: memReady,
+    desc: 'Watch five numbers flash one after another, then type them back in the same order.'},
+  colour: {title: 'Colour Mode', hint: 'Tap the ink colour, not the written word', start: colourNext,
+    desc: 'Read the colour word, ignore the distraction, and tap the button that matches the text colour.'},
+};
+
+// The hash shown before the current one. Back uses it to tell whether Home is
+// the previous page in the browser history.
+let prev = null;
+
+// Show the screen named by the URL hash, with a fresh score for a mode.
+function route() {
+  const key = location.hash.slice(1), m = MODES[key];
+  $('#back').dataset.history = m && prev === '' ? '1' : '';
+  prev = m ? key : '';
+  reveal++; // stop a digit reveal that is still running
+  $('#home').hidden = $('#out').hidden = !!m;
+  $('#mode').hidden = $('#back').hidden = !m;
+  $('#title').textContent = m ? m.title : 'BrainTraining';
+  document.title = m ? m.title + ' · BrainTraining' : 'BrainTraining';
+  if (!m) return;
+  for (const k in MODES) $('#' + k).hidden = k !== key;
+  $('#desc').textContent = m.desc;
+  $('#hint').textContent = m.hint;
+  score = streak = 0;
+  $('#score').textContent = $('#streak').textContent = 0;
+  $('#fb').hidden = true;
+  m.start();
+}
+
+// Back returns to Home. If Home is the previous page, step back in the
+// history instead of adding a new entry, so that the phone's back gesture
+// does not lead into the mode again afterwards.
+$('#back').onclick = e => {
+  if ($('#back').dataset.history) { e.preventDefault(); history.back(); }
+};
+
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
