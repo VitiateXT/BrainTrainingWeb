@@ -71,8 +71,12 @@ func TestFlow(t *testing.T) {
 	if w.Code != 200 || !isLogin(w) || w.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("page without cookie = %d %q, want the login page, not cached", w.Code, w.Header().Get("Cache-Control"))
 	}
-	if c := do(h, "GET", "/", "", func(r *http.Request) { r.RemoteAddr = "8.8.8.8:1" }).Code; c != 403 {
-		t.Errorf("public IP = %d, want 403", c)
+	// Refusals are German, like everything else a visitor sees.
+	if w := do(h, "GET", "/", "", func(r *http.Request) { r.RemoteAddr = "8.8.8.8:1" }); w.Code != 403 || !strings.Contains(w.Body.String(), "Nur im Heimnetz") {
+		t.Errorf("public IP = %d %q, want 403 with a German message", w.Code, w.Body.String())
+	}
+	if w := do(h, "POST", "/login", "pw=pw", func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") }); !strings.Contains(w.Body.String(), "abgelehnt") {
+		t.Errorf("cross-site login answered %q, want a German refusal", w.Body.String())
 	}
 	if c := do(h, "GET", "/index.html", "", nil).Code; c != 404 {
 		t.Errorf("GET /index.html = %d, want 404", c)
@@ -112,7 +116,7 @@ func TestFlow(t *testing.T) {
 		t.Errorf("cookie wrong: %+v", c)
 	}
 	w = do(h, "GET", "/", "", func(r *http.Request) { r.AddCookie(cs[0]) })
-	if w.Code != 200 || isLogin(w) || !strings.Contains(w.Body.String(), "Calculator Mode") {
+	if w.Code != 200 || isLogin(w) || !strings.Contains(w.Body.String(), "Kopfrechnen") {
 		t.Errorf("page with cookie = %d, want the games", w.Code)
 	}
 	forged := &http.Cookie{Name: "bt", Value: cs[0].Value + "0"}

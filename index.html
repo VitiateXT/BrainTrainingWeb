@@ -1,13 +1,14 @@
 <!doctype html>
 <!--
-  BrainTraining games page: the three mini-games of the Android app in one
-  file, no framework and no build step. It is compiled into the server binary
-  (see main.go) and only sent to a browser that is logged in.
+  BrainTraining games page: the three mini-games of the Android app plus two
+  conversion trainers (Zahlensysteme and Speichereinheiten), in one file with
+  no framework and no build step. All text is German. It is compiled into the
+  server binary (see main.go) and only sent to a browser that is logged in.
 
   Everything runs in the browser. Scores live in memory only and start at zero
   each time a mode is opened, as in the app.
 -->
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -25,14 +26,14 @@
   --bg:#F6F1E8;--card:#FFFFFF;--fg:#14181F;--dim:#3B4453;--outline:#6B7280;--line:#C7CCD4;
   --acc:#0F5B56;--on-acc:#FFFFFF;--prompt:#FCF2E2;
   --ok:#D7F2E3;--on-ok:#0B4A2B;--bad:#FBDEDB;--on-bad:#8C1D18;
-  --m0:#0F5B56;--m1:#B3400C;--m2:#6D28D9;--on-m:#FFFFFF;
+  --m0:#0F5B56;--m1:#B3400C;--m2:#6D28D9;--m3:#1D4ED8;--m4:#BE185D;--on-m:#FFFFFF;
   --stage:#16202E;--on-stage:#F1F5FA;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#0B1220;--card:#161F2E;--fg:#E9EEF6;--dim:#BAC5D6;--outline:#8894A8;--line:#3A4557;
   --acc:#5EEAD4;--on-acc:#04302C;--prompt:#322A1C;
   --ok:#123726;--on-ok:#A8E6C4;--bad:#43201E;--on-bad:#FFC9C4;
-  --m0:#5EEAD4;--m1:#FDBA74;--m2:#C4B5FD;--on-m:#10151F;
+  --m0:#5EEAD4;--m1:#FDBA74;--m2:#C4B5FD;--m3:#93C5FD;--m4:#F9A8D4;--on-m:#10151F;
   --stage:#0D1522;--on-stage:#E9EEF6;
 }}
 *{box-sizing:border-box}
@@ -46,7 +47,7 @@ header,main{max-width:992px;margin:0 auto;padding:0 16px}
 body.play header,body.play main{max-width:592px}
 p{margin:0}
 
-/* Top bar: Back (in a mode), title, Sign out (on Home). */
+/* Top bar: Zurück (in a mode), title, Abmelden (on Home). */
 header{display:flex;align-items:center;gap:12px;min-height:56px}
 h1{flex:1;margin:0;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #back{color:var(--acc);text-decoration:none;font-weight:600;padding:12px 0}
@@ -67,16 +68,17 @@ section{padding-bottom:32px}
 .sub,small{color:var(--dim)}
 h2{margin:0;font-size:20px}
 
-/* Home: from 900px on, the three cards stand side by side, and their Start
-   buttons line up at the bottom. */
+/* Home: the five cards in two columns from 700px and three from 960px, with
+   their Start buttons lined up at the bottom. */
 #home{gap:16px}
 .card .btn{margin-top:auto}
-@media (min-width:900px){
-  #home{display:grid;grid-template-columns:repeat(3,1fr)}
+@media (min-width:700px){
+  #home{display:grid;grid-template-columns:repeat(2,1fr)}
   #home>p,#home>small{grid-column:1/-1}
 }
+@media (min-width:960px){#home{grid-template-columns:repeat(3,1fr)}}
 
-/* Score and streak on one line. */
+/* Punkte and Serie on one line. */
 .stats{flex-direction:row;justify-content:space-around;align-items:baseline;padding:12px 20px}
 .stats b{font-size:28px;margin-left:6px}
 
@@ -87,29 +89,43 @@ h2{margin:0;font-size:20px}
 #fb.ok{background:var(--ok);color:var(--on-ok)}
 #fb.bad{background:var(--bad);color:var(--on-bad)}
 
-/* Big prompt card for calculator and remembering mode. The title keeps its
-   height while a digit is faded out, so nothing below it jumps. */
+/* Big prompt card. The title keeps its height while a digit is faded out, so
+   nothing below it jumps. */
 .prompt{background:var(--prompt)}
 .badge{color:var(--acc);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
 .big{font-size:36px;font-weight:700;line-height:44px;min-height:44px}
+/* A long question, such as "16.384 GiB = ? TiB", in smaller type on phones. */
+.big.long{font-size:28px;line-height:36px;min-height:36px}
 #memq{transition:opacity .35s}
 
-/* Calculator difficulty: two joined buttons on the badge row, the chosen one filled. */
+/* Kopfrechnen difficulty: two joined buttons on the badge row, the chosen one filled. */
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .seg{display:flex;border:1px solid var(--outline);border-radius:999px;overflow:hidden}
 .seg button{width:auto;border-radius:0;padding:7px 12px;font-size:14px;background:none;color:var(--fg);white-space:nowrap}
 .seg button[aria-pressed=true]{background:var(--acc);color:var(--on-acc)}
 .seg button:focus-visible{outline-offset:-4px;outline-color:var(--fg)}
 
-/* Colour mode: always on a dark stage so the vivid inks stay legible in both themes. */
+/* Farben: always on a dark stage so the vivid inks stay legible in both themes. */
 .stage{background:var(--stage);color:var(--on-stage);text-align:center}
 #word{font-size:52px;font-weight:700;line-height:1.2}
 #opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 #opts button{height:64px;color:#10151F;border:1px solid var(--outline)}
 
+/* Conversion trainers. The badge keeps its case, because kB and KiB differ.
+   The topic picker below the controls is shaped like the switch above, and
+   the Lösungsweg lists one step per line with digits of equal width. */
+#trdir{text-transform:none;letter-spacing:0}
+.topic{display:flex;justify-content:flex-end;align-items:center;gap:8px;color:var(--dim);font-size:14px}
+select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--outline);border-radius:999px;padding:6px 10px;max-width:100%}
+.way h3{margin:0;font-size:16px}
+.way ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+/* Focusing Next scrolls it into view on a phone; keep it clear of the edge. */
+#trnext{scroll-margin-bottom:24px}
+
 /* Larger prompts where there is room. */
 @media (min-width:600px) and (min-height:600px){
   .big{font-size:44px;line-height:52px;min-height:52px}
+  .big.long{font-size:36px;line-height:44px;min-height:44px}
   #word{font-size:64px}
 }
 
@@ -129,46 +145,48 @@ h2{margin:0;font-size:20px}
   #mode{display:grid;grid-template-columns:1fr 1fr}
   #mode>.game{grid-column:1/-1}
   .game{display:grid;grid-template-columns:1fr 1fr;align-items:start}
-  .game>.card{grid-row:1/span 3}
+  .game>.card:first-child{grid-row:1/span 3}
 }
 </style>
 </head>
 <body>
 <header>
-  <a id="back" href="#" title="Back (Esc)" hidden>‹ Back</a>
+  <a id="back" href="#" title="Zurück (Esc)" hidden>‹ Zurück</a>
   <h1 id="title">BrainTraining</h1>
-  <form id="out" method="post" action="/logout"><button>Sign out</button></form>
+  <form id="out" method="post" action="/logout"><button>Abmelden</button></form>
 </header>
 
 <main>
   <!-- Home: one card per mode. The links open the mode by changing the URL hash. -->
   <section id="home">
-    <p class="sub">Three focused mini-games for arithmetic speed, ordered recall and attention.</p>
-    <div class="card"><h2>Calculator Mode</h2><p class="sub">Solve quick arithmetic tasks up to 100 or up to 1000 with addition, subtraction, multiplication, and exact division.</p><a class="btn" href="#/calc" style="background:var(--m0);color:var(--on-m)">Start</a></div>
-    <div class="card"><h2>Remembering Mode</h2><p class="sub">Watch five numbers flash one after another, then type them back in the same order.</p><a class="btn" href="#/mem" style="background:var(--m1);color:var(--on-m)">Start</a></div>
-    <div class="card"><h2>Colour Mode</h2><p class="sub">Read the colour word, ignore the distraction, and tap the button that matches the text colour.</p><a class="btn" href="#/colour" style="background:var(--m2);color:var(--on-m)">Start</a></div>
-    <small>Inspired by brainjogging. Free software under the GNU GPL v3.</small>
+    <p class="sub">Kurze Übungen für Kopfrechnen, Merkfähigkeit, Aufmerksamkeit, Zahlensysteme und Speichereinheiten.</p>
+    <div class="card"><h2>Kopfrechnen</h2><p class="sub">Plus, Minus, Mal und Geteilt im Kopf, mit Ergebnissen bis 100 oder bis 1.000.</p><a class="btn" href="#/calc" style="background:var(--m0);color:var(--on-m)">Starten</a></div>
+    <div class="card"><h2>Merken</h2><p class="sub">Fünf Ziffern erscheinen nacheinander. Tippe sie danach in derselben Reihenfolge ein.</p><a class="btn" href="#/mem" style="background:var(--m1);color:var(--on-m)">Starten</a></div>
+    <div class="card"><h2>Farben</h2><p class="sub">Lies das Farbwort, lass dich nicht ablenken und wähle die Farbe, in der es geschrieben ist.</p><a class="btn" href="#/colour" style="background:var(--m2);color:var(--on-m)">Starten</a></div>
+    <div class="card"><h2>Zahlensysteme</h2><p class="sub">Rechne zwischen Dezimal, Binär, Oktal und Hex um. Bei einem Fehler siehst du den Lösungsweg.</p><a class="btn" href="#/conv" style="background:var(--m3);color:var(--on-m)">Starten</a></div>
+    <div class="card"><h2>Speichereinheiten</h2><p class="sub">Rechne Speichergrößen von Byte bis TB und TiB um: dezimal mit 1.000, binär mit 1.024.</p><a class="btn" href="#/units" style="background:var(--m4);color:var(--on-m)">Starten</a></div>
+    <small>Inspiriert von brainjogging. Freie Software unter der GNU GPL v3.</small>
   </section>
 
   <!-- A mode: score, status line, then the open game. -->
   <section id="mode" hidden>
-    <div class="card stats"><span>Score<b id="score">0</b></span><span>Streak<b id="streak">0</b></span></div>
+    <div class="card stats"><span>Punkte<b id="score">0</b></span><span>Serie<b id="streak">0</b></span></div>
     <p id="fb" aria-live="polite"></p>
 
     <div class="game" id="calc">
       <div class="card prompt">
         <div class="row">
-          <span class="badge">Task</span>
-          <div class="seg" id="level" role="group" aria-label="Difficulty">
-            <button type="button" value="100" aria-pressed="true">Up to 100</button>
-            <button type="button" value="1000" aria-pressed="false">Up to 1000</button>
+          <span class="badge">Aufgabe</span>
+          <div class="seg" id="level" role="group" aria-label="Schwierigkeit">
+            <button type="button" value="100" aria-pressed="true">Bis 100</button>
+            <button type="button" value="1000" aria-pressed="false">Bis 1.000</button>
           </div>
         </div>
         <span class="big" id="calcq"></span>
-        <p>Enter the result. Division questions are always exact.</p>
+        <p>Gib das Ergebnis ein. Divisionen gehen immer auf.</p>
       </div>
-      <form id="calcf"><input id="calca" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="Your answer" aria-label="Your answer"></form>
-      <button form="calcf">Check answer</button>
+      <form id="calcf"><input id="calca" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="Deine Antwort" aria-label="Deine Antwort"></form>
+      <button form="calcf">Prüfen</button>
     </div>
 
     <div class="game" id="mem">
@@ -177,17 +195,36 @@ h2{margin:0;font-size:20px}
         <span class="big" id="memq"></span>
         <p id="memtext"></p>
       </div>
-      <button id="memstart">Start round</button>
-      <form id="memf"><input id="mema" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="Sequence" aria-label="Sequence"></form>
-      <button id="memsubmit" form="memf">Submit sequence</button>
+      <button id="memstart">Runde starten</button>
+      <form id="memf"><input id="mema" inputmode="numeric" autocomplete="off" enterkeyhint="done" placeholder="Ziffernfolge" aria-label="Ziffernfolge"></form>
+      <button id="memsubmit" form="memf">Prüfen</button>
     </div>
 
     <div class="game" id="colour">
       <div class="card stage">
-        <p>Read the word, then choose the colour of the text below.</p>
+        <p>Lies das Wort und wähle die Farbe, in der es geschrieben ist.</p>
         <span id="word"></span>
       </div>
       <div id="opts"></div>
+    </div>
+
+    <!-- Both conversion trainers: task, answer, and after a wrong answer the
+         Lösungsweg in place of the answer field. -->
+    <div class="game" id="trainer">
+      <div class="card prompt">
+        <span class="badge" id="trdir"></span>
+        <span class="big" id="trq"></span>
+        <p id="trhow"></p>
+      </div>
+      <form id="trf"><input id="tra" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Antwort"></form>
+      <button id="trcheck" form="trf">Prüfen</button>
+      <div class="card way" id="trway" hidden>
+        <h3>Lösungsweg</h3>
+        <ol></ol>
+      </div>
+      <button id="trnext" hidden>Nächste Aufgabe</button>
+      <!-- A setting rather than part of a round, so it sits below the controls. -->
+      <label class="topic">Thema <select id="topic" autocomplete="off"></select></label>
     </div>
   </section>
 </main>
@@ -196,13 +233,15 @@ h2{margin:0;font-size:20px}
 /*
   How this page works
 
-  - The open screen lives in the URL hash: '' is Home, #/calc, #/mem and #/colour
-    are the modes. The browser's back button (or the phone's back gesture)
-    therefore returns to Home, as in the app.
+  - The open screen lives in the URL hash: '' is Home, #/calc, #/mem, #/colour,
+    #/conv and #/units are the modes. The browser's back button (or the phone's
+    back gesture) therefore returns to Home, as in the app.
   - Each mode has a start function that sets up its first round. A round ends
     in grade(), which updates score and streak exactly like the app: +1 and
     streak +1 when right, -1 (never below 0) and streak 0 when wrong.
-  - The task generators are ports of GameGenerators.kt with the same ranges.
+  - Kopfrechnen, Merken and Farben are the Android app's modes; their task
+    generators are ports of GameGenerators.kt. Zahlensysteme and
+    Speichereinheiten are conversion trainers that share one view.
   - Keyboard: Enter answers, Escape goes back to Home, 1-4 pick a colour.
 */
 
@@ -221,6 +260,21 @@ const shuffle = a => {
 // A promise that resolves after ms milliseconds, for use with await.
 const wait = ms => new Promise(done => setTimeout(done, ms));
 
+// A number the German way, as everywhere on this page: de(1000) is 1.000,
+// de(1048576) is 1.048.576, de(8.592) is 8,59.
+const de = (x, digits = 2) => x.toLocaleString('de-DE', {maximumFractionDigits: digits});
+
+// A number typed the German way, NaN if it is none. "1.048.576", "1048576",
+// "8,59" and "1 024" all work. A dot followed by groups of exactly three
+// digits separates thousands (1.024); any other dot is a decimal point, so
+// "8.59" works too.
+function parseDe(s) {
+  s = s.replace(/\s/g, '');
+  if (!/^\d[\d.,]*$/.test(s)) return NaN;
+  if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.'));
+  return Number(/^[1-9]\d{0,2}(\.\d{3})+$/.test(s) ? s.replace(/\./g, '') : s);
+}
+
 // The open mode's key in MODES ('' on Home, null before the first screen is
 // shown), its score and its streak.
 let mode = null, score = 0, streak = 0;
@@ -229,6 +283,12 @@ let mode = null, score = 0, streak = 0;
 function status(msg, cls = '') {
   $('#fb').textContent = msg;
   $('#fb').className = cls;
+}
+
+// Start score and streak over, for a new mode or a new difficulty or topic.
+function resetScore() {
+  score = streak = 0;
+  $('#score').textContent = $('#streak').textContent = 0;
 }
 
 // Count one finished round and show its result.
@@ -240,7 +300,7 @@ function grade(right, msg) {
   status(msg, right ? 'ok' : 'bad');
 }
 
-// ---- Calculator mode ------------------------------------------------------
+// ---- Kopfrechnen ----------------------------------------------------------
 
 // The open task (the text shown and the answer) and the difficulty: the
 // largest result, 100 or 1000. It starts at 100 and keeps the last choice
@@ -248,20 +308,22 @@ function grade(right, msg) {
 let task, level = 100;
 
 // A task whose result stays between 0 and max. Division is always exact.
-// Up to 100 keeps multiplication and division within the times tables from 2
-// to 10; up to 1000 uses the Android app's ranges (GameGenerators.kt).
+// "Bis 100" keeps multiplication and division within the times tables from 2
+// to 10; "Bis 1.000" uses the Android app's ranges (GameGenerators.kt).
 function calcTask(max) {
+  // The task "l op r" with the answer a, numbers written the German way (1.000).
+  const t = (l, op, r, a) => ({q: `${de(l)} ${op} ${de(r)}`, a});
   if (max === 100) switch (rnd(0, 4)) {
-    case 0: { const l = rnd(10, 90), r = rnd(2, 101 - l); return {q: `${l} + ${r}`, a: l + r}; }
-    case 1: { const l = rnd(10, 101), r = rnd(2, l); return {q: `${l} − ${r}`, a: l - r}; }
-    case 2: { const l = rnd(2, 11), r = rnd(2, 11); return {q: `${l} × ${r}`, a: l * r}; }
-    default: { const r = rnd(2, 11), q = rnd(2, 11); return {q: `${q * r} ÷ ${r}`, a: q}; }
+    case 0: { const l = rnd(10, 90), r = rnd(2, 101 - l); return t(l, '+', r, l + r); }
+    case 1: { const l = rnd(10, 101), r = rnd(2, l); return t(l, '−', r, l - r); }
+    case 2: { const l = rnd(2, 11), r = rnd(2, 11); return t(l, '×', r, l * r); }
+    default: { const r = rnd(2, 11), q = rnd(2, 11); return t(q * r, '÷', r, q); }
   }
   switch (rnd(0, 4)) {
-    case 0: { const l = rnd(10, 751), r = rnd(1, 1001 - l); return {q: `${l} + ${r}`, a: l + r}; }
-    case 1: { const l = rnd(50, 1001), r = rnd(1, l + 1); return {q: `${l} − ${r}`, a: l - r}; }
-    case 2: { const l = rnd(2, 26), r = rnd(2, Math.max(2, Math.floor(1000 / l)) + 1); return {q: `${l} × ${r}`, a: l * r}; }
-    default: { const r = rnd(2, 21), q = rnd(2, Math.floor(1000 / r) + 1); return {q: `${q * r} ÷ ${r}`, a: q}; }
+    case 0: { const l = rnd(10, 751), r = rnd(1, 1001 - l); return t(l, '+', r, l + r); }
+    case 1: { const l = rnd(50, 1001), r = rnd(1, l + 1); return t(l, '−', r, l - r); }
+    case 2: { const l = rnd(2, 26), r = rnd(2, Math.max(2, Math.floor(1000 / l)) + 1); return t(l, '×', r, l * r); }
+    default: { const r = rnd(2, 21), q = rnd(2, Math.floor(1000 / r) + 1); return t(q * r, '÷', r, q); }
   }
 }
 
@@ -285,23 +347,23 @@ function calcStart() {
 $('#level').onclick = e => {
   if (!e.target.value || Number(e.target.value) === level) return;
   level = Number(e.target.value);
-  score = streak = 0;
-  $('#score').textContent = $('#streak').textContent = 0;
+  resetScore();
   status(MODES.calc.hint);
   calcStart();
 };
 
-// An empty or malformed answer is a prompt to type, not a wrong answer.
+// An empty or malformed answer is a prompt to type, not a wrong answer. All
+// results are whole numbers from 0 up; 1000 and 1.000 both count.
 $('#calcf').onsubmit = e => {
   e.preventDefault();
-  const v = $('#calca').value.trim();
-  if (!/^-?\d+$/.test(v)) return status('Enter a valid number before checking.', 'bad');
-  const right = Number(v) === task.a;
-  grade(right, `${right ? 'Correct' : 'Not quite'}. ${task.q} = ${task.a}.`);
+  const v = parseDe($('#calca').value);
+  if (!Number.isInteger(v)) return status('Gib zuerst eine gültige Zahl ein.', 'bad');
+  const right = v === task.a;
+  grade(right, `${right ? 'Richtig' : 'Leider falsch'}. ${task.q} = ${de(task.a)}.`);
   calcNext();
 };
 
-// ---- Remembering mode -----------------------------------------------------
+// ---- Merken ---------------------------------------------------------------
 
 // The digits of the open round, as a string such as "40719".
 let seq = '';
@@ -309,20 +371,28 @@ let seq = '';
 // new round starts.
 let reveal = 0;
 
-// Switch the round's phase: 'Ready', 'Watch' or 'Recall'.
-function memPhase(badge, title, text) {
+// The three phases of a round: badge, title and text of the prompt card.
+const PHASES = {
+  ready: ['Bereit', 'Bereit?', 'Fünf Ziffern erscheinen nacheinander. Starte die Runde, wenn du bereit bist.'],
+  watch: ['Einprägen', '', 'Merk dir die Ziffern, während sie erscheinen.'],
+  recall: ['Eingeben', 'Tippe die Folge ein', 'Gib die fünf Ziffern in der gezeigten Reihenfolge ein.'],
+};
+
+// Switch the round's phase: 'ready', 'watch' or 'recall'.
+function memPhase(phase) {
+  const [badge, title, text] = PHASES[phase];
   $('#membadge').textContent = badge;
   $('#memq').textContent = title;
   $('#memq').style.opacity = 1;
   $('#memtext').textContent = text;
-  $('#memstart').hidden = badge !== 'Ready';
-  $('#memf').hidden = $('#memsubmit').hidden = badge !== 'Recall';
+  $('#memstart').hidden = phase !== 'ready';
+  $('#memf').hidden = $('#memsubmit').hidden = phase !== 'recall';
 }
 
 // Wait for the next round. Start has the focus, so Enter or Space starts it.
 function memReady() {
   reveal++;
-  memPhase('Ready', 'Press start', 'Five digits will appear one after another. Press start when you are ready.');
+  memPhase('ready');
   $('#memstart').focus();
 }
 
@@ -335,7 +405,7 @@ $('#memstart').onclick = async () => {
   const still = async ms => { await wait(ms); return id === reveal; };
   seq = Array.from({length: 5}, () => rnd(0, 10)).join('');
   status(MODES.mem.hint);
-  memPhase('Watch', '', 'Memorise the digits as they appear.');
+  memPhase('watch');
   q.style.opacity = 0;
   if (!await still(500)) return;
   for (const d of seq) {
@@ -345,7 +415,7 @@ $('#memstart').onclick = async () => {
     q.style.opacity = 0;
     if (!await still(350 + 150)) return;
   }
-  memPhase('Recall', 'Type the sequence', 'Enter the five digits in the order they appeared, without spaces.');
+  memPhase('recall');
   $('#mema').value = '';
   $('#mema').focus();
 };
@@ -355,16 +425,16 @@ $('#memstart').onclick = async () => {
 $('#memf').onsubmit = e => {
   e.preventDefault();
   const v = $('#mema').value.replace(/\D/g, '');
-  if (!v) return status('Enter the sequence before submitting.', 'bad');
+  if (!v) return status('Gib zuerst die Folge ein.', 'bad');
   const right = v === seq;
-  grade(right, `${right ? 'Correct' : 'Incorrect'}. The sequence was ${seq}.`);
+  grade(right, `${right ? 'Richtig' : 'Leider falsch'}. Die Folge war ${seq}.`);
   memReady();
 };
 
-// ---- Colour mode ----------------------------------------------------------
+// ---- Farben ---------------------------------------------------------------
 
 // The six inks, vivid enough to tell apart on the dark stage.
-const INK = {Red: '#F87171', Blue: '#60A5FA', Green: '#4ADE80', Yellow: '#FACC15', Orange: '#FB923C', Purple: '#A78BFA'};
+const INK = {Rot: '#F87171', Blau: '#60A5FA', Grün: '#4ADE80', Gelb: '#FACC15', Orange: '#FB923C', Lila: '#A78BFA'};
 
 // One challenge: a colour word drawn in a different ink, and four buttons of
 // which exactly one is the ink colour. The ink is the right answer.
@@ -380,22 +450,338 @@ function colourNext() {
     b.value = b.textContent = name;
     b.style.background = INK[name];
     b.onclick = () => {
-      grade(name === ink, `${name === ink ? 'Correct' : 'Incorrect'}. The ink colour was ${ink}.`);
+      grade(name === ink, `${name === ink ? 'Richtig' : 'Leider falsch'}. Die Schriftfarbe war ${ink}.`);
       colourNext();
     };
     return b;
   }));
 }
 
+// ---- Umrechnen: the shared trainer ----------------------------------------
+//
+// Zahlensysteme and Speichereinheiten share the view #trainer and one flow:
+// a task with its method, an answer, and after a wrong answer the Lösungsweg.
+// They differ in their topics and tasks. A task is an object with
+//   dir     the direction for the badge, e.g. "Binär → Hex" or "GiB → GB"
+//   q       the question, e.g. "11001₂ = ?₁₆" or "8 GiB ≈ ? GB"
+//   how     the method, in one line
+//   keys    the keyboard a phone shows: 'numeric', 'decimal' or 'text'
+//   unit    the answer's base or unit, for the placeholder ("Antwort in GB")
+//   check   (answer) → true or false, or a hint when the answer is malformed
+//   solved  the solved task for "Richtig. …", e.g. "8 GiB ≈ 8,59 GB"
+//   answer  the right answer for "Leider falsch. Richtig ist …"
+//   way     () → the Lösungsweg, one step per line
+
+// The open trainer ('conv' or 'units'), its current task, and the chosen topic
+// of each trainer. A topic starts at "Alle gemischt" and keeps the last choice
+// until the page is reloaded.
+let trainer = 'conv', cur;
+const topics = {conv: 'all', units: 'all'};
+
+// Show the answer field, or after a wrong answer the Lösungsweg and Next.
+function trShowWay(on) {
+  $('#trway').hidden = $('#trnext').hidden = !on;
+  $('#trf').hidden = $('#trcheck').hidden = on;
+}
+
+// Show task t. A phone only switches keyboards when the field is focused
+// anew, hence the blur when the keyboard changes.
+function trShow(t) {
+  const input = $('#tra');
+  cur = t;
+  $('#trdir').textContent = t.dir;
+  $('#trq').textContent = t.q;
+  $('#trq').classList.toggle('long', t.q.length > 13);
+  $('#trhow').textContent = t.how;
+  input.placeholder = `Antwort in ${t.unit}`;
+  input.value = '';
+  if (input.inputMode !== t.keys) { input.inputMode = t.keys; input.blur(); }
+  trShowWay(false);
+  input.focus();
+}
+
+const trNext = () => trShow(TRAINERS[trainer].task(topics[trainer]));
+
+// Open trainer name: its topics in the picker, then the first task.
+function trStart(name) {
+  trainer = name;
+  $('#topic').replaceChildren(...Object.entries(TRAINERS[name].topics).map(([key, label]) => new Option(label, key)));
+  $('#topic').value = topics[name];
+  trNext();
+}
+
+// Changing the topic starts over, like changing Kopfrechnen's difficulty.
+$('#topic').onchange = () => {
+  topics[trainer] = $('#topic').value;
+  resetScore();
+  status(MODES[trainer].hint);
+  trNext();
+};
+
+// Grade the answer. An empty or malformed one is a prompt, not a wrong answer.
+// A wrong answer shows the Lösungsweg until Next is pressed.
+$('#trf').onsubmit = e => {
+  e.preventDefault();
+  const v = $('#tra').value.trim();
+  if (!v) return status('Gib zuerst deine Antwort ein.', 'bad');
+  const right = cur.check(v);
+  if (typeof right === 'string') return status(right, 'bad');
+  if (right) {
+    grade(true, `Richtig. ${cur.solved}.`);
+    return trNext();
+  }
+  grade(false, `Leider falsch. Richtig ist ${cur.answer}.`);
+  $('#trway ol').replaceChildren(...cur.way().map(s => Object.assign(document.createElement('li'), {textContent: s})));
+  trShowWay(true);
+  $('#trnext').focus();
+};
+
+// Reading the Lösungsweg scrolls a phone down; the next task starts at the top.
+$('#trnext').onclick = () => { scrollTo(0, 0); trNext(); };
+
+// ---- Zahlensysteme --------------------------------------------------------
+
+// Names of the four bases, and how a number shows its base: 25₁₀, 11001₂.
+const BASES = {2: 'Binär', 8: 'Oktal', 10: 'Dezimal', 16: 'Hex'};
+const SUB = {2: '₂', 8: '₈', 10: '₁₀', 16: '₁₆'};
+// Bits per octal and per hex digit.
+const G = {8: 3, 16: 4};
+// n written in base b, with capital hex letters; with its base: fmt(25, 2) is 11001₂.
+const inBase = (n, b) => n.toString(b).toUpperCase();
+const fmt = (n, b) => inBase(n, b) + SUB[b];
+// An exponent in superscript: sup(4) is ⁴.
+const sup = p => String(p).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+// The digits allowed in base b, and how the hint names them.
+const DIGITS = '0123456789ABCDEF';
+const ALLOWED = {2: '0 und 1', 8: '0 bis 7', 10: '0 bis 9', 16: '0 bis 9 und A bis F'};
+
+// The directions [from, to] of each topic, following the sections of the notes.
+const TOPICS = {
+  dec: [[10, 2], [10, 8], [10, 16]],
+  todec: [[2, 10], [8, 10], [16, 10]],
+  binhex: [[2, 16], [16, 2]],
+  binoct: [[2, 8], [8, 2]],
+  hexoct: [[16, 8], [8, 16]],
+};
+TOPICS.all = Object.values(TOPICS).flat();
+
+// The method for one direction, in the words of the notes.
+function convHow(from, to) {
+  if (from === 10) return `Teile immer durch ${to}, lies die Reste von unten nach oben.`;
+  if (to === 10) return `Jede Ziffer × ${from} hoch Stelle (von rechts, ab 0), dann addieren.`;
+  if (from === 2) return `Bits von rechts in ${G[to]}er-Gruppen, jede Gruppe ist eine Ziffer.`;
+  if (to === 2) return `Jede ${from === 16 ? 'Hex-Ziffer' : 'Oktalziffer'} wird zu ${G[from]} Bit.`;
+  return `Über Binär: je Ziffer ${G[from]} Bit, dann in ${G[to]}er-Gruppen.`;
+}
+
+// A group of bits and its value as the sum of its place values:
+// "1001 → 8 + 1 = 9", or "1111 → 8 + 4 + 2 + 1 = 15 = F" for a hex letter.
+function groupValue(bits) {
+  const terms = [...bits].map((b, i) => b === '1' ? 2 ** (bits.length - 1 - i) : 0).filter(Boolean);
+  const v = parseInt(bits, 2);
+  return `${bits} → ${terms.length > 1 ? terms.join(' + ') + ' = ' : ''}${v}${v > 9 ? ' = ' + inBase(v, 16) : ''}`;
+}
+
+// The Lösungsweg from n in base `from` to base `to`, one step per line, with
+// the method of the notes:
+// - from decimal: divide by the base until 0, read the remainders bottom up
+// - to decimal: each digit times the base to the power of its position, summed
+// - between 2, 8 and 16: over the bits, each octal digit 3 bits and each hex
+//   digit 4, grouped from the right
+// Bit groups are joined with non-breaking spaces (NB), so a phone breaks a
+// long line at an arrow and never inside "0001 1001".
+const NB = '\u00a0';
+function convWay(n, from, to) {
+  const steps = [];
+  if (from === 10) {
+    for (let q = n; q > 0; q = Math.floor(q / to)) {
+      const r = q % to;
+      steps.push(`${q} : ${to} = ${Math.floor(q / to)} Rest ${r}${r > 9 ? ` (${inBase(r, 16)})` : ''}`);
+    }
+    steps.push(`Reste von unten nach oben: ${fmt(n, to)}`);
+    return steps;
+  }
+  if (to === 10) {
+    const digits = inBase(n, from), terms = [];
+    [...digits].forEach((d, i) => {
+      const p = digits.length - 1 - i, v = parseInt(d, 16) * from ** p;
+      steps.push(`${d}${/[A-F]/.test(d) ? ` (${parseInt(d, 16)})` : ''} · ${from}${sup(p)} = ${v}`);
+      if (v) terms.push(v);
+    });
+    steps.push(`${terms.length > 1 ? terms.join(' + ') + ' = ' : ''}${fmt(n, 10)}`);
+    return steps;
+  }
+  const bits = inBase(n, 2);
+  if (from !== 2) {
+    // Each octal or hex digit becomes 3 or 4 bits.
+    const digits = [...inBase(n, from)], parts = digits.map(d => parseInt(d, 16).toString(2).padStart(G[from], '0'));
+    digits.forEach((d, i) => steps.push(`${d} → ${parts[i]}`));
+    const lead = parts.join('') !== bits ? 'ohne führende Nullen ' : '';
+    steps.push(to === 2 ? `Zusammen: ${parts.join(NB)} → ${lead}${fmt(n, 2)}` : `Bits: ${parts.join(NB)} → ${bits}`);
+  }
+  if (to !== 2) {
+    // Split the bits from the right into groups, padding the leftmost with zeros.
+    const g = G[to], pad = (g - bits.length % g) % g;
+    const groups = ('0'.repeat(pad) + bits).match(new RegExp(`.{${g}}`, 'g'));
+    const split = [groups[0].slice(pad), ...groups.slice(1)].join(NB);
+    steps.push(`Von rechts in ${g}er-Gruppen: ${pad ? split + ' → ' : ''}${groups.join(NB)}`);
+    steps.push(...groups.map(groupValue));
+    steps.push(`Ergebnis: ${fmt(n, to)}`);
+  }
+  return steps;
+}
+
+// The task "convert n from base `from` to base `to`". Spaces, case and
+// leading zeros in the answer do not matter; a digit the base does not have
+// is a prompt.
+function numTask(n, from, to) {
+  return {
+    n, from, to,
+    dir: `${BASES[from]} → ${BASES[to]}`, q: `${fmt(n, from)} = ?${SUB[to]}`, how: convHow(from, to),
+    keys: to === 16 ? 'text' : 'numeric', unit: BASES[to],
+    check: v => {
+      v = v.replace(/\s/g, '').toUpperCase();
+      if ([...v].some(c => !DIGITS.slice(0, to).includes(c))) return `Erlaubt sind nur ${ALLOWED[to]}.`;
+      return parseInt(v, to) === n;
+    },
+    solved: `${fmt(n, from)} = ${fmt(n, to)}`, answer: fmt(n, to), way: () => convWay(n, from, to),
+  };
+}
+
+// A task from topic t: a number from 5 to 63 (below 5 there is little to
+// convert). 63 is the largest number with 6 bits, so it has at most 2 octal
+// and 2 hex digits.
+const convTask = t => { const [from, to] = pick(TOPICS[t]); return numTask(rnd(5, 64), from, to); };
+
+// ---- Speichereinheiten ----------------------------------------------------
+
+// The units by level 0 (Byte) to 4 (TB, TiB), decimal (SI) and binary (IEC),
+// with the step from one level to the next.
+const SI = {name: 'Dezimal (SI)', step: 1000, u: ['Byte', 'kB', 'MB', 'GB', 'TB']};
+const IEC = {name: 'Binär (IEC)', step: 1024, u: ['Byte', 'KiB', 'MiB', 'GiB', 'TiB']};
+// The notes' factors for one level, [binary → decimal, decimal → binary].
+const FACTOR = {1: [1.024, 0.977], 2: [1.049, 0.954], 3: [1.074, 0.931], 4: [1.100, 0.909]};
+
+// Keep a number (or the "?") with its unit, and "≈" with its number, so that
+// a phone never puts "TiB" or "1.862" alone at the start of a line.
+const keep = s => s.replace(/([\d?]) (?=(?:Byte|[kKMGT]i?B)\b)/g, '$1' + NB).replace(/≈ (?=\d)/g, '≈' + NB);
+const tidy = t => ({...t, q: keep(t.q), solved: keep(t.solved), answer: keep(t.answer), way: () => t.way().map(keep)});
+
+// The check for an exact answer, and for an approximate one: within 0.5 % of
+// the exact value (at least 0.01), which allows both the rounded factors of
+// the notes and exact arithmetic but no wrong factor (those are 2 % off).
+const NOT_A_NUMBER = 'Gib eine Zahl ein, zum Beispiel 1.024 oder 8,59.';
+const exactly = want => v => { const x = parseDe(v); return isNaN(x) ? NOT_A_NUMBER : x === want; };
+const about = exact => v => { const x = parseDe(v); return isNaN(x) ? NOT_A_NUMBER : Math.abs(x - exact) <= Math.max(exact * 0.005, 0.01); };
+
+// One step within a system: n of level L down to level L-1 (multiply by the
+// step), or the reverse (divide).
+function stepTask(sys, L, n, up) {
+  const {name, step, u} = sys, big = `${de(n)} ${u[L]}`, small = `${de(n * step)} ${u[L - 1]}`;
+  return tidy({
+    dir: up ? `${u[L - 1]} → ${u[L]}` : `${u[L]} → ${u[L - 1]}`, q: up ? `${small} = ? ${u[L]}` : `${de(n)} ${u[L]} = ? ${u[L - 1]}`,
+    how: `${name}: zur kleineren Einheit mal ${de(step)}, zur größeren geteilt durch ${de(step)}.`,
+    keys: 'decimal', unit: up ? u[L] : u[L - 1],
+    check: exactly(up ? n : n * step),
+    solved: up ? `${small} = ${big}` : `${big} = ${small}`, answer: up ? big : small,
+    way: () => [
+      `${name}: 1 ${u[L]} = ${de(step)} ${u[L - 1]}`,
+      up ? `Zur größeren Einheit teilen: ${de(n * step)} : ${de(step)} = ${de(n)}` : `Zur kleineren Einheit malnehmen: ${de(n)} × ${de(step)} = ${de(n * step)}`,
+      up ? `${small} = ${big}` : `${big} = ${small}`,
+    ],
+  });
+}
+
+// Two steps down within a system: n of level L to level L-2, such as
+// 1 MiB = 1.048.576 Byte.
+function twoStepTask(sys, L, n) {
+  const {name, step, u} = sys, mid = n * step, end = mid * step;
+  return tidy({
+    dir: `${u[L]} → ${u[L - 2]}`, q: `${de(n)} ${u[L]} = ? ${u[L - 2]}`,
+    how: `Zwei Stufen nach unten: zweimal mit ${de(step)} malnehmen.`,
+    keys: 'decimal', unit: u[L - 2], check: exactly(end),
+    solved: `${de(n)} ${u[L]} = ${de(end)} ${u[L - 2]}`, answer: `${de(end)} ${u[L - 2]}`,
+    way: () => [
+      `${name}: 1 ${u[L]} = ${de(step)} ${u[L - 1]} und 1 ${u[L - 1]} = ${de(step)} ${u[L - 2]}`,
+      `${de(n)} × ${de(step)} = ${de(mid)}, also ${de(n)} ${u[L]} = ${de(mid)} ${u[L - 1]}`,
+      `${de(mid)} × ${de(step)} = ${de(end)}, also ${de(mid)} ${u[L - 1]} = ${de(end)} ${u[L - 2]}`,
+      `${de(n)} ${u[L]} = ${de(end)} ${u[L - 2]}`,
+    ],
+  });
+}
+
+// The same level in the other system, with the factor of the notes: binary to
+// decimal (toSI, × 1,024 … 1,100) or decimal to binary (× 0,977 … 0,909).
+function crossTask(L, n, toSI) {
+  const [from, to] = toSI ? [IEC, SI] : [SI, IEC], f = FACTOR[L][toSI ? 0 : 1], got = n * f;
+  const exact = n * (from.step / to.step) ** L, p = L > 1 ? sup(L) : '';
+  // The factor as in the notes, always with three decimals: 1,100, not 1,1.
+  const F = f.toLocaleString('de-DE', {minimumFractionDigits: 3});
+  return tidy({
+    dir: `${from.u[L]} → ${to.u[L]}`, q: `${de(n)} ${from.u[L]} ≈ ? ${to.u[L]}`,
+    how: `Gleiche Stufe: mal Faktor ${toSI ? 'größer' : 'kleiner'} als 1, auf 2 Nachkommastellen runden.`,
+    keys: 'decimal', unit: to.u[L], check: about(exact),
+    solved: `${de(n)} ${from.u[L]} ≈ ${de(got)} ${to.u[L]}`, answer: `≈ ${de(got)} ${to.u[L]}`,
+    way: () => [
+      `Gleiche Stufe ${from.u[L]} → ${to.u[L]}: Faktor ${F}`,
+      `Der Faktor ist ${de(from.step)}${p} : ${de(to.step)}${p} ≈ ${F}`,
+      `${de(n)} × ${F} = ${de(got, 3)}`,
+      `Gerundet: ${de(n)} ${from.u[L]} ≈ ${de(got)} ${to.u[L]}`,
+    ],
+  });
+}
+
+// A hard drive of n TB in GiB, as Windows shows it: first TB to GB, then the
+// factor 0,931. Windows calls the result "GB".
+function diskTask(n) {
+  const gb = n * 1000, got = gb * FACTOR[3][1];
+  return tidy({
+    dir: 'Festplatte: TB → GiB', q: `${de(n)} TB ≈ ? GiB`,
+    how: 'Erst TB → GB (× 1.000), dann GB → GiB mit dem Faktor. Auf ganze GiB runden.',
+    keys: 'decimal', unit: 'GiB', check: about(n * 1e12 / 2 ** 30),
+    solved: `${de(n)} TB ≈ ${de(got, 0)} GiB`, answer: `≈ ${de(got, 0)} GiB`,
+    way: () => [
+      `${de(n)} TB = ${de(gb)} GB`,
+      `Gleiche Stufe GB → GiB: Faktor 0,931`,
+      `${de(gb)} × 0,931 = ${de(got, 3)}`,
+      `≈ ${de(got, 0)} GiB – deshalb zeigt Windows bei ${de(n)} TB „${de(got, 0)} GB“ an.`,
+    ],
+  });
+}
+
+// The kinds of task in each topic. "Alle gemischt" draws from all of them.
+const UNIT_KINDS = {
+  steps: [
+    () => stepTask(pick([SI, IEC]), rnd(1, 5), rnd(2, 17), Math.random() < .5),
+    () => twoStepTask(pick([SI, IEC]), rnd(2, 5), rnd(1, 5)),
+  ],
+  bin2dec: [() => crossTask(rnd(1, 5), pick([1, 2, 4, 8, 16, 32, 64, 128, 256, 512]), true)],
+  dec2bin: [
+    () => crossTask(rnd(1, 5), pick([1, 2, 4, 5, 10, 16, 32, 64, 100, 128, 250, 256, 500]), false),
+    () => diskTask(pick([1, 2, 4, 8])),
+  ],
+};
+UNIT_KINDS.all = Object.values(UNIT_KINDS).flat();
+const unitTask = t => pick(UNIT_KINDS[t])();
+
+// The two trainers: the topics of their picker and their task maker.
+const TRAINERS = {
+  conv: {task: convTask, topics: {all: 'Alle gemischt', dec: 'Dezimal → andere', todec: 'Andere → Dezimal', binhex: 'Binär ↔ Hex', binoct: 'Binär ↔ Oktal', hexoct: 'Hex ↔ Oktal'}},
+  units: {task: unitTask, topics: {all: 'Alle gemischt', steps: 'Stufen (1.000 / 1.024)', bin2dec: 'Binär → Dezimal', dec2bin: 'Dezimal → Binär'}},
+};
+
 // ---- Screens --------------------------------------------------------------
 
 // Title, hint for the status line and first round of each mode, keyed by the
 // name in the URL hash. A new mode needs an entry here, a link on Home and a
-// <div class="game"> with the same id.
+// <div class="game"> with the same id, or the id of a shared one in `view`.
+const TRAINER_HINT = 'Bei einem Fehler siehst du den Lösungsweg.';
 const MODES = {
-  calc: {title: 'Calculator Mode', get hint() { return `Target range: 0 - ${level}`; }, start: calcStart},
-  mem: {title: 'Remembering Mode', hint: 'Round length: 5 digits', start: memReady},
-  colour: {title: 'Colour Mode', hint: 'Tap the ink colour, not the written word', start: colourNext},
+  calc: {title: 'Kopfrechnen', get hint() { return `Zahlenbereich: 0 bis ${de(level)}`; }, start: calcStart},
+  mem: {title: 'Merken', hint: 'Rundenlänge: 5 Ziffern', start: memReady},
+  colour: {title: 'Farben', hint: 'Wähle die Schriftfarbe, nicht das Wort.', start: colourNext},
+  conv: {title: 'Zahlensysteme', view: 'trainer', hint: TRAINER_HINT, start: () => trStart('conv')},
+  units: {title: 'Speichereinheiten', view: 'trainer', hint: TRAINER_HINT, start: () => trStart('units')},
 };
 
 // Show the screen named by the URL hash, with a fresh score for a mode. The
@@ -418,9 +804,8 @@ function route() {
   if (!m) return;
   // A mode starts at the top, wherever Home was scrolled to on a phone.
   scrollTo(0, 0);
-  for (const k in MODES) $('#' + k).hidden = k !== key;
-  score = streak = 0;
-  $('#score').textContent = $('#streak').textContent = 0;
+  for (const g of document.querySelectorAll('.game')) g.hidden = g.id !== (m.view || key);
+  resetScore();
   status(m.hint);
   m.start();
 }

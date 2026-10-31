@@ -1,7 +1,11 @@
-// BrainTrainingWeb serves the BrainTraining mini-games (calculator, remembering
-// and colour mode) as one web page over HTTPS, behind a single password. The
-// games run entirely in the browser; the server only checks the password and
-// hands out the page. It uses only the Go standard library.
+// BrainTrainingWeb serves the BrainTraining games (Kopfrechnen, Merken, Farben,
+// Zahlensysteme and Speichereinheiten) as one German web page over HTTPS,
+// behind a single password. The games run entirely in the browser; the server
+// only checks the password and hands out the page. It uses only the Go
+// standard library.
+//
+// Everything a visitor sees is German, including the few error responses
+// below. Log messages are English, like the setup script and the README.
 //
 // Routes:
 //
@@ -126,13 +130,13 @@ func sameOrigin(r *http.Request) bool {
 func guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !isLAN(r.RemoteAddr) {
-			http.Error(w, "LAN only", http.StatusForbidden)
+			http.Error(w, "Nur im Heimnetz erreichbar", http.StatusForbidden)
 			return
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r.Method == http.MethodPost {
 			if !sameOrigin(r) {
-				http.Error(w, "cross-site request refused", http.StatusForbidden)
+				http.Error(w, "Anfrage von einer fremden Seite abgelehnt", http.StatusForbidden)
 				return
 			}
 			http.NewResponseController(w).SetReadDeadline(time.Now().Add(10 * time.Second))
@@ -188,7 +192,7 @@ func (s *server) page(w http.ResponseWriter, r *http.Request) {
 func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1024)
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		http.Error(w, "Ungültige Anfrage", http.StatusBadRequest)
 		return
 	}
 	h := sha256.Sum256([]byte(r.PostForm.Get("pw")))

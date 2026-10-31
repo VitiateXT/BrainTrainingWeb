@@ -3,9 +3,9 @@
   BrainTraining login page. The server sends it instead of the games when the
   browser has no valid session cookie (see main.go). The password goes out as
   an ordinary form, so this works without JavaScript; the one-line script only
-  shows "Wrong password" after a failed attempt, which ends on /?wrong.
+  shows "Falsches Passwort" after a failed attempt, which ends on /?wrong.
 -->
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -30,9 +30,9 @@ p{width:100%;margin:0;color:var(--err)}
 <body>
 <form method="post" action="/login">
   <h1>BrainTraining</h1>
-  <input name="pw" type="password" placeholder="Password" autocomplete="current-password" required autofocus>
-  <button>Sign in</button>
-  <p id="err" hidden>Wrong password.</p>
+  <input name="pw" type="password" placeholder="Passwort" autocomplete="current-password" required autofocus>
+  <button>Anmelden</button>
+  <p id="err" hidden>Falsches Passwort.</p>
 </form>
 <script>if (location.search === '?wrong') document.getElementById('err').hidden = false;</script>
 </body>

@@ -1,18 +1,41 @@
 # BrainTrainingWeb
 
 The three mini-games of the [BrainTraining](https://github.com/VitiateXT/BrainTraining)
-Android app as a small web app for the home network: one password, HTTPS,
-reachable from any browser on the LAN.
+Android app, plus two conversion trainers, as a small web app for the home
+network: one password, HTTPS, reachable from any browser on the LAN.
 
-- **Calculator Mode**: +, −, × and exact ÷ at two levels. **Up to 100** (the
-  default) keeps every result at most 100 and × and ÷ within the times tables
-  from 2 to 10. **Up to 1000** uses the Android app's ranges.
-- **Remembering Mode**: five digits fade in one after another; type them back
-  in order.
-- **Colour Mode**: a Stroop test. Tap the ink colour, not the written word.
+Everything a visitor sees is German, numbers included (`1.000`, `8,59`). The
+setup script, the log messages and this README are English.
 
-Each mode counts a score and a streak, as in the app. Nothing is saved: scores
-start at zero each time a mode is opened.
+- **Kopfrechnen** (the app's Calculator Mode): +, −, × and exact ÷ at two
+  levels. **Bis 100** (the default) keeps every result at most 100 and × and ÷
+  within the times tables from 2 to 10. **Bis 1.000** uses the Android app's
+  ranges.
+- **Merken** (Remembering Mode): five digits fade in one after another; type
+  them back in order.
+- **Farben** (Colour Mode): a Stroop test. Pick the ink colour, not the written
+  word.
+- **Zahlensysteme**: convert numbers from 5 to 63 between decimal, binary,
+  octal and hex, in all 12 directions or one topic at a time. Each task names
+  its method; a wrong answer shows the worked solution step by step (division
+  with remainders, digit × base to the power of its position, or bit groups of
+  3 and 4).
+- **Speichereinheiten**: storage units, decimal (SI, steps of 1.000) and binary
+  (IEC, steps of 1.024). Steps within one system (`3 MiB = 3.072 KiB`,
+  `1 MiB = 1.048.576 Byte`), the same level across systems with the factor
+  table (`8 GiB ≈ 8,59 GB`, × 1,024 / 1,049 / 1,074 / 1,100 and back), and
+  why a 1 TB drive shows as 931 GB in Windows. Approximate answers count when
+  they are within 0.5 % of the exact value.
+
+The two trainers share one screen and one flow (`trShow`, `trNext` in
+`index.html`); each brings its own topics and task builders.
+
+Answers are typed the German way, with a dot for thousands and a comma for
+decimals; `1000` and `8.59` work too.
+
+Each mode counts points and a streak (Punkte, Serie), as in the app. Nothing is
+saved: scores start at zero each time a mode is opened, and the chosen level and
+topics last until the page is reloaded.
 
 It works on phones (upright and sideways), tablets, laptops and desktops, in
 light and dark mode, and a whole round fits on the screen without scrolling.
@@ -92,8 +115,8 @@ three routes over HTTPS:
 | `POST /logout` | Deletes the session cookie                                     |
 
 The games run entirely in the browser; the server only guards the page. The
-open screen lives in the URL hash (`#/calc`, `#/mem`, `#/colour`), so the
-browser's back button returns to the start page.
+open screen lives in the URL hash (`#/calc`, `#/mem`, `#/colour`, `#/conv`,
+`#/units`), so the browser's back button returns to the start page.
 
 ## Security
 
@@ -118,8 +141,12 @@ The same design as HomeStream:
 
 ```bash
 go vet ./... && go test ./...                        # server tests
-BT_PASSWORD=test ./braintraining                     # run without the service (stop it first, or set BT_ADDR)
+BT_PASSWORD=test BT_ADDR=:8445 ./braintraining       # run beside the service, with the certificate from setup.sh
 ```
+
+The Go tests cover the server. The games themselves are plain JavaScript in
+`index.html` without automated tests in this repository; check a change in a
+browser, on a phone and a desktop, in light and dark mode.
 
 | File                    | Purpose                                                  |
 |-------------------------|----------------------------------------------------------|
@@ -132,12 +159,20 @@ BT_PASSWORD=test ./braintraining                     # run without the service (
 
 Where to change things in `index.html`:
 
-- Task ranges: `calcTask()`. Up to 1000 is a port of `GameGenerators.kt` from
-  the Android app; the default level is `level`.
-- Digit count and timing of Remembering Mode: the `#memstart` click handler.
+- Kopfrechnen task ranges: `calcTask()`. Bis 1.000 is a port of
+  `GameGenerators.kt` from the Android app; the default level is `level`.
+- Digit count and timing of Merken: the `#memstart` click handler; its texts
+  in `PHASES`.
 - Colours: the CSS variables at the top (from `BrainTrainingTheme.kt`) and
-  `INK` for Colour Mode.
+  `INK` for Farben.
 - Titles and hints of the modes: `MODES`.
+- Zahlensysteme: topics and their directions in `TOPICS`, the number range in
+  `convTask`, the method lines in `convHow()` and the worked solution in
+  `convWay()`.
+- Speichereinheiten: the task kinds per topic in `UNIT_KINDS`, the factor table
+  in `FACTOR`, the tolerance for approximate answers in `about()`, and one
+  builder per kind (`stepTask`, `twoStepTask`, `crossTask`, `diskTask`).
+- Topic names in the picker: `TRAINERS`.
 
 ## License
 
